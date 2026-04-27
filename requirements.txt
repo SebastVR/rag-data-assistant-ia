@@ -1,0 +1,88 @@
+
+# =============================
+# Producción / Cloud
+# =============================
+supabase>=2.0.0                    # Cliente Supabase para producción/cloud
+sqlalchemy==2.0.30                 # ORM para base de datos
+psycopg2-binary==2.9.9             # Driver PostgreSQL
+
+# =============================
+# S3/MinIO Cloud Storage
+# =============================
+boto3==1.37.38                     # Cliente AWS S3/MinIO
+# s3fs==2026.3.0                   # (opcional)
+
+# =============================
+# Backend (API)
+# =============================
+fastapi==0.115.12                  # API principal
+uvicorn==0.34.2                    # ASGI server
+pydantic==2.11.5                   # Validación de datos
+pydantic_settings==2.9.1            # Configuración por entorno
+
+# =============================
+# Web Scraping
+# =============================
+requests==2.32.3                   # HTTP requests
+beautifulsoup4==4.14.3             # Parsing HTML
+lxml==4.9.3                        # Parsing XML/HTML
+trafilatura==1.6.0                 # Extracción de texto web
+tenacity==8.2.0                    # Reintentos automáticos
+
+# =============================
+# LLM / IA y Embeddings (desarrollo offline)
+# =============================
+sentence-transformers==4.1.0        # Embeddings open source (dev)
+transformers==4.51.3                # Modelos HuggingFace (dev)
+torch==2.7.0                        # Backend para embeddings (dev)
+qdrant-client==1.14.2               # Cliente para base vectorial Qdrant
+huggingface-hub==0.31.2             # Descarga/gestión de modelos HF
+llama-cpp-python==0.3.9             # Inferencia local GGUF (Qwen/Llama)
+openai==1.76.2                      # (opcional, solo si usas OpenAI API)
+
+# =============================
+# Procesamiento de PDFs y OCR
+# =============================
+pypdf==4.2.0                        # Extracción de texto de PDFs
+pdf2image==1.17.0                   # Conversión de PDF a imagen (OCR)
+pytesseract==0.3.13                 # OCR para PDFs escaneados
+pillow==11.3.0                      # Dependencia de pdf2image/pytesseract
+
+# =============================
+# Procesamiento asíncrono y colas
+# =============================
+celery==5.3.6                       # Procesamiento en segundo plano
+redis==5.0.1                        # Backend para Celery
+flower==2.0.1                       # Monitor de tareas Celery
+
+# =============================
+# Utils y red
+# =============================
+httpx==0.28.1                       # Descarga de archivos por HTTP
+tenacity==8.2.0                     # Reintentos automáticos
+
+# =============================
+# Data Science y Visualización
+# =============================
+numpy==2.2.5                        # Cálculo numérico
+streamlit==1.44.1                   # UI interactiva
+pandas==2.2.3                       # DataFrames
+plotly==5.24.1                      # Gráficas interactivas
+
+# =============================
+# Utils
+# =============================
+python-dotenv==1.1.0                # Manejo de variables de entorno
+tiktoken==0.9.0                     # Tokenizer para LLMs (opcional)
+orjson==3.10.18                     # JSON rápido (opcional)
+
+# =============================
+# Testing
+# =============================
+pytest==8.3.5
+pytest-asyncio==0.26.0
+
+# =============================
+# FastAPI Uploads
+# =============================
+python-multipart==0.0.20            # Soporte para uploads en FastAPI
