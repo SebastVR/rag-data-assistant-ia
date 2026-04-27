@@ -1,0 +1,204 @@
+networks:
+  rag_net:
+    driver: bridge
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "80:80"
+    environment:
+      - APP_ENV=dev
+      - RUN_MIGRATIONS_ON_START=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - rag_net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:80/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ./app/debug/pages:/app/debug/pages
+      - ./app/debug/json:/app/debug/json
+      - ./hf_cache:/root/.cache/huggingface
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      - RAG_API_URL=http://app:80
+      - CHAT_HISTORY_MESSAGES=6
+      - STREAMLIT_HTTP_TIMEOUT=45
+    command: >
+      sh -lc 'streamlit run app/ui/streamlit_app.py --server.address=0.0.0.0
+      --server.port=8501 --server.headless=true'
+    ports:
+      - "8501:8501"
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - rag_net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8501/_stcore/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # --- Servicio Qdrant (vector store) ---
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333" # API
+      - "6334:6334" # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - rag_net
+
+  # --- Servicio Redis (broker/cache para Celery) ---
+
+  rabbitmq:
+    image: rabbitmq:3.11-management
+    env_file:
+      - .env
+    ports:
+      - "15672:15672" # UI
+      - "5672:5672" # AMQP
+    networks:
+      - rag_net
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rag_net
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app/app
+    command: >
+      sh -lc 'celery -A app.celery_worker.celery_config:celery_app worker
+      --loglevel=info --hostname=rag-data-assistant-ia-worker -Q
+      rag-data-assistant-ia'
+    volumes:
+      - ./app:/app/app
+      - ./hf_cache:/root/.cache/huggingface
+    networks:
+      - rag_net
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A app.celery_worker.celery_config.celery_app inspect ping
+            --timeout=5",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  flower:
+    image: mher/flower:2.0.1
+    build:
+      context: .
+      dockerfile: Dockerfile # Usa el mismo Dockerfile que la app y worker
+    env_file:
+      - .env
+    command: sh -c "celery -A app.celery_worker.celery_config.celery_app flower
+      --address=0.0.0.0 --port=5555"
+    ports:
+      - "5555:5555"
+    networks:
+      - rag_net
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      worker:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rag_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    env_file:
+      - .env
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web UI
+    volumes:
+      - minio_data:/data
+    networks:
+      - rag_net
+
+volumes:
+  minio_data:
+  postgres_data:
+  qdrant_data:
+  redis_data:
+  hf_cache:
