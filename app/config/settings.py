@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     minio_bucket_name: str
 
     # ─────────────── AWS S3 (producción) ───────────────
-    aws_region_name: str
-    aws_s3_access_key_id: str
-    aws_s3_secret_access_key: str
-    aws_s3_bucket_name: str
+    # aws_region_name: str
+    # aws_s3_access_key_id: str
+    # aws_s3_secret_access_key: str
+    # aws_s3_bucket_name: str
 
     # ─────────────── POSTGRES ───────────────
     postgres_db: str
@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
 
     # ─────────────── SUPABASE (opcional) ───────────────
-    supabase_url: str | None = None
-    supabase_service_key: str | None = None
-    supabase_attachment_bucket: str | None = None
+    # supabase_url: str | None = None
+    # supabase_service_key: str | None = None
+    # supabase_attachment_bucket: str | None = None
 
     # ─────────────── QDRANT (vector store) ───────────────
     qdrant_host: str  # Host del contenedor Qdrant
@@ -62,10 +62,10 @@ class Settings(BaseSettings):
         "ollama"  # llama_cpp | ollama | openai | chatgpt | claude | bedrock
     )
     llm_model_name: str = "llama3.2"
-    llm_model_path: str = "app/rag/Qwen3-VL-4B-Instruct-Q4_K_M.gguf"
+    llm_model_path: str = "app/rag/llama-2-7b-chat.Q4_K_M.gguf"
     ollama_base_url: str = "http://localhost:11434"
     openai_api_key: str | None = None
-    bedrock_model_id: str
+    # bedrock_model_id: str
     bedrock_max_new_tokens: int = 5000
     bedrock_temperature: float = 0.0
 
