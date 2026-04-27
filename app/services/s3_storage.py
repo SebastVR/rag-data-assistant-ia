@@ -246,9 +246,10 @@ class S3Storage:
 def save_model_file_to_minio(file: UploadFile, folder: str = "llm_models") -> str:
     """
     Sube un archivo UploadFile a MinIO/S3 usando S3Storage y retorna el file_key (ruta en el bucket).
+    Usa streaming para evitar cargar todo el archivo en memoria.
     """
     s3 = S3Storage()
     file.file.seek(0)
-    file_data = file.file.read()
-    file_key = s3.write_file(folder, file.filename, file_data)
+    # Usar el stream directamente en put_object
+    file_key = s3.write_file(folder, file.filename, file.file)
     return file_key

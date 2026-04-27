@@ -48,11 +48,8 @@ async def upload_model(
     file: UploadFile = File(...),
     provider: str = Form(default="llama_cpp"),
     model_name: str | None = Form(default=None),
-    input_token_cost: float = Form(default=2.5),
-    output_token_cost: float = Form(default=5.0),
-    set_as_active: bool = Form(default=True),
 ):
-    """Sube un modelo LLM usando Celery."""
+    """Sube un modelo LLM (.gguf) a Minio/S3 y retorna la ruta."""
     try:
         normalized_provider = provider.strip().lower()
         if normalized_provider != "llama_cpp":
@@ -71,24 +68,11 @@ async def upload_model(
                 detail="Solo se permiten archivos .gguf",
             )
 
-        # 1. Subir archivo a MinIO/S3
-
+        # Subir archivo a MinIO/S3 usando streaming
         file_key = save_model_file_to_minio(file, folder="llm_models")
 
-        resolved_model_name = model_name or os.path.splitext(file.filename)[0]
-        # 2. Lanzar tarea Celery pasando solo el file_key (no el path local)
-        task = upload_llm_model_task.delay(
-            file_key=file_key,
-            file_name=file.filename,
-            provider=normalized_provider,
-            model_name=resolved_model_name.strip(),
-            input_token_cost=input_token_cost,
-            output_token_cost=output_token_cost,
-            set_as_active=set_as_active,
-        )
         return {
-            "message": "Model upload task launched",
-            "task_id": task.id,
+            "message": "Modelo subido exitosamente a Minio/S3",
             "file_key": file_key,
         }
     except HTTPException:
