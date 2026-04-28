@@ -232,10 +232,26 @@ class RagIngestionService:
     # ────────────────────────────────────────────────────────────────
     def _download_pdf(self, url: str) -> bytes:
         """Descarga un archivo PDF desde una URL y retorna su contenido en bytes."""
-        with httpx.Client(timeout=PDF_TIMEOUT_SECONDS, follow_redirects=True) as client:
-            response = client.get(url)
-            response.raise_for_status()
-            return response.content
+        # Si la URL es de MinIO/S3, usar el cliente S3 en lugar de httpx
+        if self._is_s3_url(url):
+            return self._download_from_s3(url)
+
+        # Para URLs externas, usar httpx con manejo de errores mejorado
+        try:
+            with httpx.Client(
+                timeout=PDF_TIMEOUT_SECONDS, follow_redirects=True
+            ) as client:
+                response = client.get(url)
+                response.raise_for_status()
+                return response.content
+        except httpx.ConnectError as e:
+            raise ValueError(
+                f"No se pudo conectar a la URL {url}. "
+                f"Verifica que la URL sea accesible desde el contenedor del worker. "
+                f"Error: {str(e)}"
+            )
+        except Exception as e:
+            raise ValueError(f"Error descargando PDF desde {url}: {str(e)}")
 
     # ────────────────────────────────────────────────────────────────
     def _extract_pdf_text_with_ocr_fallback(self, pdf_bytes: bytes) -> str:
@@ -273,6 +289,46 @@ class RagIngestionService:
         """Limpia y limita el nombre de archivo para almacenamiento seguro."""
         safe = re.sub(r"[^a-zA-Z0-9_-]", "_", value)
         return safe[:80] or "document"
+
+    # ────────────────────────────────────────────────────────────────
+    def _is_s3_url(self, url: str) -> bool:
+        """Detecta si una URL es de S3/MinIO."""
+        # Detectar URLs de MinIO local o S3
+        s3_patterns = [
+            settings.minio_endpoint,
+            "s3.amazonaws.com",
+            ".s3.",
+            "minio:",
+        ]
+        return any(pattern in url for pattern in s3_patterns)
+
+    # ────────────────────────────────────────────────────────────────
+    def _download_from_s3(self, url: str) -> bytes:
+        """Descarga un archivo desde S3/MinIO usando boto3."""
+        # Extraer la key del objeto desde la URL
+        # Formato esperado: http://minio:9000/bucket/folder/file.pdf
+        try:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(url)
+            path_parts = parsed.path.lstrip("/").split("/", 1)
+
+            if len(path_parts) < 2:
+                raise ValueError(f"URL de S3 mal formada: {url}")
+
+            # bucket_name = path_parts[0]  # No usar, usar el del settings
+            object_key = path_parts[1]
+
+            # Separar folder y filename
+            if "/" in object_key:
+                folder, filename = object_key.rsplit("/", 1)
+            else:
+                folder = ""
+                filename = object_key
+
+            return self.storage.read_file(folder, filename)
+        except Exception as e:
+            raise ValueError(f"Error descargando desde S3/MinIO {url}: {str(e)}")
 
 
 # ────────────────────────────────────────────────────────────────
